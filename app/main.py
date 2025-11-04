@@ -41,7 +41,23 @@ def create_redis_client() -> redis.Redis:
         raise RuntimeError("Missing REDIS_HOST or REDIS_PASSWORD environment variables")
 
     port = int(port_str)
-    return redis.Redis(host=host, port=port, password=password, ssl=use_tls, decode_responses=True)
+    
+    # SSL configuration for Redis Cloud
+    ssl_kwargs = {}
+    if use_tls:
+        ssl_kwargs = {
+            "ssl": True,
+            "ssl_cert_reqs": None,  # Disable certificate verification
+            "ssl_check_hostname": False,
+        }
+    
+    return redis.Redis(
+        host=host, 
+        port=port, 
+        password=password, 
+        decode_responses=True,
+        **ssl_kwargs
+    )
 
 
 redis_client: Optional[redis.Redis] = None
