@@ -32,6 +32,8 @@ def require_api_key(x_api_key: Optional[str] = Header(default=None, alias="X-API
 
 
 def create_redis_client() -> redis.Redis:
+    import ssl
+    
     host = os.getenv("REDIS_HOST")
     port_str = os.getenv("REDIS_PORT", "6379")
     password = os.getenv("REDIS_PASSWORD")
@@ -42,13 +44,17 @@ def create_redis_client() -> redis.Redis:
 
     port = int(port_str)
     
-    # SSL configuration for Redis Cloud
+    # SSL configuration for Redis Cloud - more permissive
     ssl_kwargs = {}
     if use_tls:
+        # Create SSL context with minimal verification
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+        
         ssl_kwargs = {
             "ssl": True,
-            "ssl_cert_reqs": None,  # Disable certificate verification
-            "ssl_check_hostname": False,
+            "ssl_context": ssl_context,
         }
     
     return redis.Redis(
@@ -56,6 +62,8 @@ def create_redis_client() -> redis.Redis:
         port=port, 
         password=password, 
         decode_responses=True,
+        socket_timeout=10,
+        socket_connect_timeout=10,
         **ssl_kwargs
     )
 
@@ -66,12 +74,38 @@ redis_client: Optional[redis.Redis] = None
 @app.on_event("startup")
 def on_startup() -> None:
     global redis_client
-    redis_client = create_redis_client()
-    # Simple ping to validate connectivity
+    
+    # Try TLS first, then fallback to non-TLS
     try:
+        redis_client = create_redis_client()
         redis_client.ping()
-    except Exception as exc:  # pragma: no cover
-        raise RuntimeError(f"Failed to connect to Redis: {exc}")
+        print("✅ Connected to Redis with TLS")
+    except Exception as tls_exc:
+        print(f"⚠️ TLS connection failed: {tls_exc}")
+        print("🔄 Trying without TLS...")
+        
+        try:
+            # Fallback: try without TLS
+            host = os.getenv("REDIS_HOST")
+            port = int(os.getenv("REDIS_PORT", "6379"))
+            password = os.getenv("REDIS_PASSWORD")
+            
+            redis_client = redis.Redis(
+                host=host,
+                port=port,
+                password=password,
+                ssl=False,  # No TLS
+                decode_responses=True,
+                socket_timeout=10,
+                socket_connect_timeout=10,
+            )
+            redis_client.ping()
+            print("✅ Connected to Redis without TLS")
+        except Exception as no_tls_exc:
+            print(f"❌ Both TLS and non-TLS failed")
+            print(f"TLS error: {tls_exc}")
+            print(f"Non-TLS error: {no_tls_exc}")
+            raise RuntimeError(f"Failed to connect to Redis with TLS ({tls_exc}) and without TLS ({no_tls_exc})")
 
 
 @app.on_event("shutdown")
