@@ -141,7 +141,7 @@ MAX_ARGS_LEN = 10
 
 
 @app.post("/redis/json-get")
-def json_get(req: JsonGetRequest, _auth: None = Depends(require_api_key)) -> dict:
+def json_get(req: JsonGetRequest) -> dict:
     if not req.key or not req.key.startswith(ALLOWED_KEY_PREFIXES):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Key prefix not allowed")
     if len(req.key) > MAX_KEY_LEN:
@@ -160,7 +160,7 @@ def json_get(req: JsonGetRequest, _auth: None = Depends(require_api_key)) -> dic
 
 
 @app.post("/redis/command")
-def command(req: CommandRequest, _auth: None = Depends(require_api_key)) -> dict:
+def command(req: CommandRequest) -> dict:
     command_upper = (req.command or "").upper()
     if command_upper not in ALLOWED_COMMANDS:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Command not allowed")
