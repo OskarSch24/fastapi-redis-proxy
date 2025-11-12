@@ -3,7 +3,7 @@ import os
 from typing import List, Optional
 
 import redis
-from fastapi import Depends, FastAPI, Header, HTTPException, status
+from fastapi import Body, Depends, FastAPI, Header, HTTPException, status
 from pydantic import BaseModel
 from starlette.requests import Request
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -180,6 +180,82 @@ def command(req: CommandRequest, _: None = Depends(require_api_key)) -> dict:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Redis error: {exc}")
 
     return {"result": _parse_maybe_json_string(result)}
+
+
+@app.post("/redis/query")
+def universal_query(
+    request: dict = Body(...),
+    _: None = Depends(require_api_key)
+) -> dict:
+    """Universal endpoint that handles flexible query formats for Redis JSON."""
+    
+    # Scenario 1: Single key retrieval
+    if "key" in request:
+        key = request["key"]
+        if not key.startswith(ALLOWED_KEY_PREFIXES):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Key prefix not allowed")
+        
+        path = request.get("path", ".")  # JSON path, default root
+        
+        assert redis_client is not None, "Redis client not initialized"
+        try:
+            result = redis_client.execute_command("JSON.GET", key, path)
+        except Exception as exc:
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Redis error: {exc}")
+        
+        if result is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Key not found")
+        
+        return {"result": _parse_maybe_json_string(result)}
+    
+    # Scenario 2: Direct JSON command
+    elif "command" in request:
+        command = request["command"].upper()
+        
+        # Only allow JSON.* commands
+        if not command.startswith("JSON."):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only JSON.* commands allowed")
+        
+        args = request.get("args", [])
+        if len(args) > MAX_ARGS_LEN:
+            raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Too many arguments")
+        
+        # Validate first arg if it's a key
+        if args and isinstance(args[0], str) and not args[0].startswith(ALLOWED_KEY_PREFIXES):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Key prefix not allowed")
+        
+        assert redis_client is not None, "Redis client not initialized"
+        try:
+            result = redis_client.execute_command(command, *args)
+        except Exception as exc:
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Redis error: {exc}")
+        
+        return {"result": _parse_maybe_json_string(result)}
+    
+    # Scenario 3: Multiple keys retrieval
+    elif "keys" in request:
+        keys = request["keys"]
+        if not isinstance(keys, list):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Keys must be a list")
+        
+        results = {}
+        assert redis_client is not None, "Redis client not initialized"
+        
+        for key in keys:
+            if not isinstance(key, str) or not key.startswith(ALLOWED_KEY_PREFIXES):
+                results[key] = None
+                continue
+            
+            try:
+                result = redis_client.execute_command("JSON.GET", key)
+                results[key] = _parse_maybe_json_string(result)
+            except Exception:
+                results[key] = None
+        
+        return {"results": results}
+    
+    else:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid query format. Must include 'key', 'command', or 'keys'")
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
