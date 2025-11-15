@@ -390,6 +390,30 @@ curl -X POST http://localhost:8080/redis/query \
   -d '{"command": "JSON.GET", "args": ["index:main"]}'
 ```
 
+**Test with Paragraph Key**:
+```bash
+curl -X POST http://localhost:8080/redis/json-get \
+  -H "X-API-Key: test_api_key_123" \
+  -H "Content-Type: application/json" \
+  -d '{"key": "p:brand_personality:001"}'
+```
+
+**Test with Chunk Key**:
+```bash
+curl -X POST http://localhost:8080/redis/json-get \
+  -H "X-API-Key: test_api_key_123" \
+  -H "Content-Type: application/json" \
+  -d '{"key": "chunk:content:042"}'
+```
+
+**Test Batch Query (Multiple Keys)**:
+```bash
+curl -X POST http://localhost:8080/redis/query \
+  -H "X-API-Key: test_api_key_123" \
+  -H "Content-Type: application/json" \
+  -d '{"keys": ["ch:brand_identity:005", "p:brand_personality:001", "chunk:content:042"]}'
+```
+
 ### Dependencies
 
 See [`requirements.txt`](requirements.txt):
@@ -507,7 +531,7 @@ Content Generation Agent (AI)
 **Cause**: Invalid key prefix or malformed request body
 
 **Common Issues**:
-- Key doesn't start with `doc:`, `ch:`, or `index:`
+- Key doesn't start with allowed prefixes: `doc:`, `ch:`, `index:`, `p:`, `para:`, `sp:`, `ssp:`, or `chunk:`
 - Empty or missing `key` field in body
 - Invalid JSON format
 
@@ -516,8 +540,17 @@ Content Generation Agent (AI)
 // ❌ Wrong
 {"key": "user:data:001"}
 
-// ✅ Correct
+// ✅ Correct - Document
 {"key": "doc:brand_brief:001"}
+
+// ✅ Correct - Chapter
+{"key": "ch:brand_identity:005"}
+
+// ✅ Correct - Paragraph
+{"key": "p:brand_personality:001"}
+
+// ✅ Correct - Chunk
+{"key": "chunk:content:042"}
 ```
 
 ---
