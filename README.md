@@ -242,10 +242,17 @@ Only keys with specific prefixes are allowed to prevent unauthorized data access
 - `doc:` - Documents (e.g., `doc:brand_brief:001`)
 - `ch:` - Chapters (e.g., `ch:marketing:005`)
 - `index:` - Index keys (e.g., `index:database_schema`)
+- `p:` - Paragraphs (e.g., `p:brand_identity:001`)
+- `para:` - Paragraphs (alternative format)
+- `sp:` - Subparagraphs (e.g., `sp:values:002`)
+- `ssp:` - Sub-subparagraphs (e.g., `ssp:details:003`)
+- `chunk:` - Text chunks (e.g., `chunk:content:001`)
 
 **Example**:
 - ✅ `doc:brand_brief:001` - Allowed
 - ✅ `ch:marketing:005` - Allowed
+- ✅ `p:brand_identity:001` - Allowed
+- ✅ `chunk:content:042` - Allowed
 - ✅ `index:main` - Allowed
 - ❌ `user:passwords:admin` - Rejected (400)
 - ❌ `config:api_keys` - Rejected (400)

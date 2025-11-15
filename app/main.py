@@ -135,7 +135,7 @@ def _parse_maybe_json_string(value: Optional[str]):
 
 
 ALLOWED_COMMANDS = {"JSON.GET"}
-ALLOWED_KEY_PREFIXES = ("doc:", "ch:", "index:")
+ALLOWED_KEY_PREFIXES = ("doc:", "ch:", "index:", "p:", "para:", "sp:", "ssp:", "chunk:")
 MAX_KEY_LEN = 256
 MAX_ARGS_LEN = 10
 
